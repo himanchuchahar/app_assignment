@@ -66,13 +66,22 @@ const sharedStyles = theme => ({
         width: '100%',
     },
     textLinks: {
-        color: "#ef822c",
+        color: themeConstants.color.secondaryColor,
         fontSize: themeConstants.font.xsmall + "px",
-        textDecoration: 'none',
+        textDecoration: 'none',  
+        cursor: 'pointer',  
         '&:hover': {
             textDecoration: 'underline',
         },
-    }
+    },
+    textLinkDisabled: {
+        cursor: 'not-allowed',
+        fontSize: themeConstants.font.xsmall + "px",
+        color: themeConstants.color.darkGrey,
+        '&:hover': {
+            textDecoration: 'none',
+        },
+    },
 });
 
 export default sharedStyles;

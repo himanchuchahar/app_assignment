@@ -5,7 +5,7 @@
    */
 
 let carStorageName = "carsDB";
-const saveCarArray = [];
+let saveCarArray = [];
 export const setCarData = (data) => {
     saveCarArray.push(data);
     localStorage.setItem(carStorageName, JSON.stringify(saveCarArray));
@@ -29,13 +29,15 @@ export const isSaved = (stockNumber) => {
     return getCarData().filter(function (e) { return e.stockNumber == stockNumber; }).length > 0
 }
 
+
 /**
- * method to remove Car from localStorage
+ * method to remove Car from localStorage,
+ * Immutable way of deleting an from an array, and is more cleaner from fromIndex and splice
  */
 export const deleteCar = (stockNumber) => {
-    let filteredData = getCarData().filter(function (e) { return e.stockNumber != stockNumber; });
-    localStorage.setItem(carStorageName, JSON.stringify(filteredData));
-    return filteredData;
+    saveCarArray = getCarData().filter(function (e) { return e.stockNumber != stockNumber; });
+    localStorage.setItem(carStorageName, JSON.stringify(saveCarArray));
+    return saveCarArray;
 }
 
 

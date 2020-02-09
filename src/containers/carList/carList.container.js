@@ -7,14 +7,10 @@ import Car from '../../components/car/car.component';
 import { withStyles } from '@material-ui/core/styles';
 import Grid from '@material-ui/core/Grid';
 import List from '@material-ui/core/List';
-import Select from '@material-ui/core/Select';
-import InputLabel from '@material-ui/core/InputLabel';
-import MenuItem from '@material-ui/core/MenuItem';
-import FormControl from '@material-ui/core/FormControl';
-import Button from '@material-ui/core/Button';
 import { getCarData } from '../../store/PersistStore'
 import sharedStyles from '../../sharedStyles';
-import ContentLoader from 'react-content-loader'
+import ContentLoader from 'react-content-loader';
+import Filter from '../../components/filter/filter.map';
 
 
 const styles = theme => ({
@@ -22,11 +18,6 @@ const styles = theme => ({
     root: {
         flexGrow: 1,
         paddingBottom: "100px",
-    },
-    filter: {
-        display: "flex",
-        margin: "12px 0",
-
     },
     listHeader: {
         marginTop: 0,
@@ -37,25 +28,8 @@ const styles = theme => ({
     paginationAction: {
         padding: "0 8px",
     },
-    filterButtonPanel: {
-        display: "flex",
-        justifyContent: "flex-end",
-    },
 });
 
-/**
-* Style for filter button
-*/
-const FilterButton = withStyles(theme => ({
-    root: {
-        color: "#fff",
-        width: "128px",
-        backgroundColor: "#EA7F28",
-        "&:hover": {
-            backgroundColor: "#D37324",
-        },
-    },
-}))(Button);
 
 
 const CarList = (props) => {
@@ -77,20 +51,21 @@ const CarList = (props) => {
     /**
     *	Intial value of current Page
     */
-    const [currentPage, updatePage] = useState(1);
+    const [carCounter, updatePage] = useState({
+        counterPage: 1,
+        carCount: 0
+    });
 
-    const [colorFilter, setColorState] = useState(' ');
+    const [filterObject, setFilterobject] = useState({
+        colorFilter: ' ',
+        manufacturerFilter: ' ',
+        sortBy: 'asc'
+    })
 
-    const [manufacturerFilter, setmanufacturerState] = useState(' ');
-
-    const [sortBy, setSortBy] = useState('asc');
 
     useEffect(() => {
         if (!props.location.pathname.includes("savedcars")) {
             setCars({ isLoading: true })
-            props.getColorFilterHandler();
-            props.getManufacturerFilterHandler();
-            props.getCarListHandler(colorFilter, manufacturerFilter, sortBy, currentPage)
         } else {
             setCars({ isLocal: true, cars: getCarData() })
         }
@@ -103,7 +78,8 @@ const CarList = (props) => {
 
     useEffect(() => {
         if (props.carListData.carList && !props.location.pathname.includes("savedcars")) {
-            setCars(prevState => { return { isLocal: prevState.isLocal, cars: props.carListData.carList.cars, isLoading: false } })
+            setCars(prevState => ({ isLocal: prevState.isLocal, cars: props.carListData.carList.cars, isLoading: false }))
+            updatePage(prevState => ({ counterPage: prevState.counterPage, carCount: prevState.carCount + props.carListData.carList.cars.length }))
         }
     }, [props.carListData.carList]);
 
@@ -113,9 +89,24 @@ const CarList = (props) => {
     */
     useEffect(() => {
         if (!props.location.pathname.includes("savedcars")) {
-            props.getCarListHandler(colorFilter, manufacturerFilter, sortBy, currentPage)
+            props.getCarListHandler(filterObject.colorFilter, filterObject.manufacturerFilter, filterObject.sortBy, carCounter.counterPage)
         }
-    }, [currentPage]);
+    }, [carCounter.counterPage]);
+
+    const filterHandler = (colorFilter, manufacturerFilter, sortBy) => {
+        setFilterobject({
+            colorFilter: colorFilter,
+            manufacturerFilter,
+            sortBy
+        })
+        updatePage({ counterPage: 1, carCount: 0 });
+        /**
+         * Make server call from here only if page number is 1 or else use useEfect to make server call on page change
+         */
+        if (carCounter.counterPage === 1) {
+            props.getCarListHandler(colorFilter, manufacturerFilter, sortBy, carCounter.counterPage);
+        }
+    }
 
 
     /**
@@ -124,18 +115,25 @@ const CarList = (props) => {
     const handlePaginationClick = (action) => {
         switch (action) {
             case 'FIRST':
-                updatePage(1);
+                updatePage({ counterPage: 1, carCount: 0 });
                 break;
             case 'LAST':
-                updatePage(props.carListData.carList.totalPageCount);
+                updatePage({
+                    counterPage: props.carListData.carList.totalPageCount, carCount:
+                        (props.carListData.carList.totalPageCount - 1) * 10
+                });
                 break;
             case 'SUBTRACT':
-                if (currentPage > 1)
-                    updatePage(currentPage - 1);
+                if (carCounter.counterPage > 1)
+                    updatePage(prevState => ({
+                        counterPage: prevState.counterPage - 1, carCount: prevState.carCount - (
+                            props.carListData.carList.cars.length + 10
+                        )
+                    }));
                 break;
             case 'ADD':
-                if (currentPage < props.carListData.carList.totalPageCount)
-                    updatePage(currentPage + 1);
+                if (carCounter.counterPage < props.carListData.carList.totalPageCount)
+                    updatePage(prevState => ({ counterPage: prevState.counterPage + 1, carCount: prevState.carCount }));
                 break;
             default:
                 break;
@@ -158,11 +156,11 @@ const CarList = (props) => {
     const paginationPanel = () => {
         return (
             <div style={{ textAlign: "right" }}>
-                <span className={`${classes.textLinks} ${classes.paginationAction}`} onClick={() => { handlePaginationClick('FIRST') }}>First</span>
-                <span className={`${classes.textLinks} ${classes.paginationAction}`} onClick={() => { handlePaginationClick('SUBTRACT') }}>Previous</span>
-                Page {currentPage} of {props.carListData.carList.totalPageCount}
-                <span className={`${classes.textLinks} ${classes.paginationAction}`} onClick={() => { handlePaginationClick('ADD') }}>Next</span>
-                <span className={`${classes.textLinks} ${classes.paginationAction}`} onClick={() => { handlePaginationClick('LAST') }}>Last</span>
+                <span className={`${carCounter.counterPage > 1 ? classes.textLinks : classes.textLinkDisabled} ${classes.paginationAction}`} onClick={() => { handlePaginationClick('FIRST') }}>First</span>
+                <span className={`${carCounter.counterPage > 1 ? classes.textLinks : classes.textLinkDisabled} ${classes.paginationAction}`} onClick={() => { handlePaginationClick('SUBTRACT') }}>Previous</span>
+                Page {carCounter.counterPage} of {props.carListData.carList.totalPageCount}
+                <span className={`${carCounter.counterPage < props.carListData.carList.totalPageCount ? classes.textLinks : classes.textLinkDisabled} ${classes.paginationAction}`} onClick={() => { handlePaginationClick('ADD') }}>Next</span>
+                <span className={`${carCounter.counterPage < props.carListData.carList.totalPageCount ? classes.textLinks : classes.textLinkDisabled} ${classes.paginationAction}`} onClick={() => { handlePaginationClick('LAST') }}>Last</span>
             </div>
         )
     }
@@ -174,11 +172,11 @@ const CarList = (props) => {
                     <p className={`${classes.listHeader} ${classes.mediumTextBold}`}>{carsArray.isLocal ? 'Saved' : 'Available'} cars</p>
                     {
                         !carsArray.isLocal &&
-                        <span className={classes.mediumText}>Showing {props.carListData.carList.cars.length || 0} of {props.carListData.carList.totalCarsCount || 0} results</span>
+                        <span className={classes.mediumText}>Showing {carCounter.carCount || 0} of {props.carListData.carList.totalCarsCount || 0} results</span>
                     }
                     <List className={classes.list}>
                         {carsArray.cars.map(car => {
-                            return <Car key={car.stockNumber} car={{ ...car, "isLocal": carsArray.isLocal }}/>
+                            return <Car key={car.stockNumber} car={{ ...car, "isLocal": carsArray.isLocal }} />
                         })}
                     </List>
                     <div>{!carsArray.isLocal && paginationPanel()}</div>
@@ -199,74 +197,18 @@ const CarList = (props) => {
         );
     }
 
-    const filterCar = () => {
-        props.getCarListHandler(colorFilter, manufacturerFilter, sortBy, currentPage);
-    }
-
     const filterPanel = () => {
-        return (
-            <div className={`${classes.panel} ${classes.filterPanel}`}>
-                <FormControl className={classes.filter}>
-                    <InputLabel id="color-filter-label">Color</InputLabel>
-                    <Select
-                        labelId="color-filter-label"
-                        id="color-filter-label"
-                        onChange={(event) => {
-                            setColorState(event.target.value);
-                        }}
-                        value={colorFilter}>
-                        <MenuItem value={' '}>All Colors</MenuItem>
-                        {
-                            (props.clrFilter.colorFilter &&
-                                props.clrFilter.colorFilter.colors.map(color => {
-                                    return <MenuItem key={color} value={color}>{color}</MenuItem>
-                                }))
-                        }
-                    </Select>
-                </FormControl>
-                <FormControl className={classes.filter}>
-                    <InputLabel id="manufacturer-filter-label">Manufacturer</InputLabel>
-                    <Select
-                        labelId="manufacturer-filter-label"
-                        id="manufacturer-filter-label"
-                        onChange={(event) => {
-                            setmanufacturerState(event.target.value);
-                        }}
-                        value={manufacturerFilter}>
-                        <MenuItem value={' '}>All Manufacturer</MenuItem>
-                        {
-                            (props.manuFilter.manufacturerFilter &&
-                                props.manuFilter.manufacturerFilter.map(manu => {
-                                    return <MenuItem key={manu} value={manu}>{manu}</MenuItem>
-                                }))
-                        }
-                    </Select>
-                </FormControl>
-                <FormControl className={classes.filter}>
-                    <InputLabel id="sort-filter-label">Sort By</InputLabel>
-                    <Select
-                        labelId="sort-filter-label"
-                        id="sort-filter-label"
-                        onChange={(event) => {
-                            setSortBy(event.target.value);
-                        }}
-                        value={"asc"}>
-                        <MenuItem value="asc">Mileage - Ascending</MenuItem>
-                        <MenuItem value="desc">Mileage - Descending</MenuItem>
-                    </Select>
-                </FormControl>
-                <div className={classes.filterButtonPanel}>
-                    <FilterButton variant="contained" disableElevation onClick={() => filterCar()}>Filter</FilterButton>
-                </div>
-            </div>
-        )
+        if (!carsArray.isLocal)
+            return (
+                <Filter filterClick={filterHandler} />
+            )
     }
 
     return (
         <div className={classes.root}>
             <Grid container spacing={3}>
                 <Grid item xs={12} sm={3}>
-                    {!carsArray.isLocal && filterPanel()}
+                    {filterPanel()}
                 </Grid>
                 <Grid item sm={carsArray.isLocal ? 12 : 9} xs={12}>
                     {props.carListData.status === 200 || carsArray.isLocal
